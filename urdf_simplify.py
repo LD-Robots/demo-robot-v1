@@ -337,6 +337,7 @@ def simplify_urdf(root, links_info, sub_links):
              'threaded_bar', 'threaded_eye', 'spacer', 'lever_ankle',
              'ankle_bearing', 'upper_ankle_shaft', 'ankle_shaft',
              'fixation_leg', 'ankle_ear', 'torso_pelvis_plate',
+             'l_hand', 'r_hand',
              'urdf_bb_', 'urdf_bl_', 'urdf_bm_', 'urdf_br_', 'urdf_btl_', 'urdf_btu_',
              'urdf_fb_', 'urdf_fl_', 'urdf_fm_', 'urdf_fr_', 'urdf_ftl_', 'urdf_ftu_',
              'urdf_lb_', 'urdf_lbm_', 'urdf_lm_', 'urdf_ltl_', 'urdf_ltu_',

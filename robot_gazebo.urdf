@@ -235,21 +235,6 @@
         <mesh filename="package://meshes/collision/l_wrist.stl" />
       </geometry>
     </collision>
-    <visual>
-      <origin xyz="-0.0303429 4.52464e-07 -0.135203" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://meshes/visual/l_hand.stl" />
-      </geometry>
-      <material name="l_hand_material">
-        <color rgba="1 1 1 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin xyz="-0.0303429 4.52464e-07 -0.135203" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://meshes/collision/l_hand.stl" />
-      </geometry>
-    </collision>
   </link>
   <joint name="left_wrist_roll_joint_X4" type="revolute">
     <origin xyz="0.033 8.3118e-08 -0.0565" rpy="-0.174536 0 0" />
@@ -409,21 +394,6 @@
       <mass value="0.3" />
       <inertia ixx="0.000742915" ixy="-9.20411e-11" ixz="3.4585e-05" iyy="0.000854959" iyz="-2.44701e-09" izz="0.000175006" />
     </inertial>
-    <visual>
-      <origin xyz="-0.0303429 -4.52461e-07 -0.135203" rpy="0 0 3.14159" />
-      <geometry>
-        <mesh filename="package://meshes/visual/r_hand.stl" />
-      </geometry>
-      <material name="r_hand_material">
-        <color rgba="1 1 1 1" />
-      </material>
-    </visual>
-    <collision>
-      <origin xyz="-0.0303429 -4.52461e-07 -0.135203" rpy="0 0 3.14159" />
-      <geometry>
-        <mesh filename="package://meshes/collision/r_hand.stl" />
-      </geometry>
-    </collision>
     <visual>
       <origin xyz="-0.0219316 -4.59044e-06 -0.0434653" rpy="0 0 -1.5708" />
       <geometry>

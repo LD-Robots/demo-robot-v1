@@ -1,19 +1,61 @@
 # URDF Pipeline: Onshape to Gazebo
 
-Pipeline for converting Onshape CAD exports into simulation-ready URDF files. Three scripts, run in order:
+Pipeline for converting Onshape CAD exports into simulation-ready URDF/xacro files for a ROS2 robot_description package.
 
 ```
 robot.urdf (Onshape export)
     │
-    ▼  urdf_simplify.py
+    ▼  1. urdf_simplify.py
 robot_simplified.urdf (clean frames, merged links)
     │
-    ▼  apply_joint_limits.py
+    ▼  2. apply_joint_limits.py
 robot_with_limits.urdf (joint limits from YAML)
     │
-    ▼  simplify_meshes.py
+    ▼  3. simplify_meshes.py
 robot_gazebo.urdf (decimated visual + convex collision meshes)
+    │
+    ▼  4. split_urdf.py
+urdf/joints/<name>_joints.xacro + urdf/links/<name>_links.xacro
+    │
+    ▼  deploy to robot_description package
 ```
+
+---
+
+## Quick start — `build_description.py`
+
+Runs all 4 steps and deploys the results (xacro files + meshes) to a target robot_description package.
+
+```bash
+# Full pipeline with fixed legs support:
+python build_description.py /path/to/dual_arm_description --fixed-legs
+
+# Custom decimation ratio:
+python build_description.py /path/to/dual_arm_description -r 0.2 --fixed-legs
+
+# Skip steps 1-2 if URDF is already simplified:
+python build_description.py /path/to/dual_arm_description --skip-simplify --skip-limits --fixed-legs
+```
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `target` | — | Path to target robot_description package |
+| `--source-urdf` | `robot.urdf` | Source URDF from Onshape export |
+| `-r`, `--ratio` | `0.2` | Visual mesh decimation ratio (20%) |
+| `--skip-simplify` | off | Skip step 1, use existing `robot_simplified.urdf` |
+| `--skip-limits` | off | Skip step 2, use existing `robot_with_limits.urdf` |
+| `--fixed-legs` | off | Add xacro support for `fixed_legs` argument |
+| `--damping` | `0.5` | Joint damping value |
+| `--friction` | `0.1` | Joint friction value |
+
+### What it deploys
+
+- `urdf/joints/<name>_joints.xacro` — all joints organized by body section
+- `urdf/links/<name>_links.xacro` — all links organized by body section
+- `meshes/visual/*.stl` — decimated visual meshes
+- `meshes/collision/*.stl` — convex hull collision meshes
+
+The `<name>` is derived from the package name (e.g. `dual_arm_description` → `dual_arm`).
 
 ---
 
@@ -28,7 +70,7 @@ Simplifies and reorients URDF files exported from Onshape (via onshape-to-robot)
 3. **Simplifies the structure**:
    - Removes sub-links (duplicate joints, fixed joints)
    - Merges sub-link masses into their parent main links
-   - Strips motor hardware meshes (rotors, stators, bearings, nuts, spacers) from visual/collision
+   - Strips motor hardware meshes (rotors, stators, bearings, nuts, spacers) and hand meshes (l_hand, r_hand) from visual/collision
 4. **Reorients all frames** to standard convention:
    - Z up, X forward, Y left
    - Pitch / knee / elbow → `axis="0 1 0"` (Y)
@@ -154,17 +196,31 @@ python simplify_meshes.py -r 0.1 --collision-ratio 0.02
 
 ---
 
-## Full pipeline example
+## Step 4: Split into xacro — `split_urdf.py`
+
+Splits a monolithic URDF into separate xacro files for joints and links, organized by body section.
+
+### What it does
+
+- Classifies joints/links into sections: Waist, Left Arm, Right Arm, Left Leg, Right Leg
+- Sorts joints in kinematic chain order (proximal → distal)
+- Adds `<dynamics>` elements to joints
+- Rewrites mesh paths to `package://<package_name>/meshes/...`
+- With `--fixed-legs`: adds `xacro:property` for `leg_joint_type` so leg joints can be set to fixed
+
+### Usage
 
 ```bash
-# 1. Simplify URDF structure (from Onshape export)
-echo "yes" | python urdf_simplify.py robot.urdf
-
-# 2. Apply joint limits
-python apply_joint_limits.py
-
-# 3. Decimate meshes for Gazebo
-python simplify_meshes.py -o robot_gazebo.urdf -r 0.2 --convex-collision
+python split_urdf.py -i robot_gazebo.urdf -p dual_arm_description --fixed-legs
+python split_urdf.py -i robot_gazebo.urdf -p my_robot_description --damping 0.5 --friction 0.1
 ```
 
-Output: `robot_gazebo.urdf` with meshes in `meshes/visual/` and `meshes/collision/`.
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `-i`, `--input` | `robot_gazebo.urdf` | Input URDF |
+| `-p`, `--package` | — | ROS package name for mesh paths |
+| `-o`, `--output-dir` | `urdf/` | Output directory (creates `joints/` and `links/` subdirs) |
+| `-n`, `--name` | derived from input | Base name for output files |
+| `--damping` | `0.5` | Joint damping value |
+| `--friction` | `0.1` | Joint friction value |
+| `--fixed-legs` | off | Add xacro support for `fixed_legs` argument |
