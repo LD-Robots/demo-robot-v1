@@ -10,10 +10,10 @@ Runs all 4 steps:
 
 Then copies the results (xacro files + meshes) to the target robot_description package.
 
-Usage:
-    python build_description.py /path/to/my_robot_description
-    python build_description.py /path/to/dual_arm_description -r 0.2
-    python build_description.py /path/to/dual_arm_description --skip-simplify
+Usage (run from repo root):
+    python util/scripts/build_description.py /path/to/my_robot_description
+    python util/scripts/build_description.py /path/to/dual_arm_description -r 0.2 --fixed-legs
+    python util/scripts/build_description.py /path/to/dual_arm_description --skip-simplify
 """
 
 import argparse
@@ -23,13 +23,13 @@ import subprocess
 import sys
 
 
-def run(cmd: list[str], desc: str) -> None:
+def run(cmd: list[str], desc: str, cwd: str) -> None:
     """Run a command, printing it and checking for errors."""
     print(f"\n{'='*70}")
     print(f"  {desc}")
     print(f"  $ {' '.join(cmd)}")
     print(f"{'='*70}\n")
-    result = subprocess.run(cmd, check=False)
+    result = subprocess.run(cmd, check=False, cwd=cwd)
     if result.returncode != 0:
         print(f"\nERROR: {desc} failed (exit code {result.returncode})")
         sys.exit(1)
@@ -58,12 +58,12 @@ def main():
     parser.add_argument(
         "--skip-simplify",
         action="store_true",
-        help="Skip step 1 (urdf_simplify.py), use existing robot_simplified.urdf",
+        help="Skip step 1 (urdf_simplify.py), use existing urdf/robot_simplified.urdf",
     )
     parser.add_argument(
         "--skip-limits",
         action="store_true",
-        help="Skip step 2 (apply_joint_limits.py), use existing robot_with_limits.urdf",
+        help="Skip step 2 (apply_joint_limits.py), use existing urdf/robot_with_limits.urdf",
     )
     parser.add_argument(
         "--fixed-legs",
@@ -84,11 +84,13 @@ def main():
     )
     args = parser.parse_args()
 
-    # Resolve paths
+    # Resolve paths — repo root is two levels up from this script
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.abspath(os.path.join(script_dir, "..", ".."))
     target = os.path.abspath(args.target)
     package_name = os.path.basename(target)
 
+    print(f"Repo root:      {repo_root}")
     print(f"Target package: {package_name}")
     print(f"Target path:    {target}")
 
@@ -100,8 +102,11 @@ def main():
     if not args.skip_simplify:
         run(
             [sys.executable, os.path.join(script_dir, "urdf_simplify.py"),
-             args.source_urdf],
+             args.source_urdf,
+             "-o", os.path.join("urdf", "robot_simplified.urdf"),
+             "-c", os.path.join("util", "configs", "simplify_config.yaml")],
             "Step 1/4: Simplify URDF structure",
+            cwd=repo_root,
         )
     else:
         print("\n-- Skipping step 1 (urdf_simplify.py)")
@@ -109,8 +114,12 @@ def main():
     # Step 2: Apply joint limits
     if not args.skip_limits:
         run(
-            [sys.executable, os.path.join(script_dir, "apply_joint_limits.py")],
+            [sys.executable, os.path.join(script_dir, "apply_joint_limits.py"),
+             "-i", os.path.join("urdf", "robot_simplified.urdf"),
+             "-o", os.path.join("urdf", "robot_with_limits.urdf"),
+             "-c", os.path.join("util", "configs", "joint_limits.yaml")],
             "Step 2/4: Apply joint limits",
+            cwd=repo_root,
         )
     else:
         print("\n-- Skipping step 2 (apply_joint_limits.py)")
@@ -118,24 +127,28 @@ def main():
     # Step 3: Simplify meshes
     run(
         [sys.executable, os.path.join(script_dir, "simplify_meshes.py"),
-         "-o", "robot_gazebo.urdf",
-         "-i", "robot_with_limits.urdf",
+         "-i", os.path.join("urdf", "robot_with_limits.urdf"),
+         "-o", os.path.join("urdf", "robot_gazebo.urdf"),
          "-r", str(args.ratio),
+         "--visual-dir", os.path.join("urdf", "meshes", "visual") + "/",
+         "--collision-dir", os.path.join("urdf", "meshes", "collision") + "/",
          "--convex-collision"],
         "Step 3/4: Decimate meshes (visual + convex collision)",
+        cwd=repo_root,
     )
 
     # Step 4: Split into xacro files
     split_cmd = [
         sys.executable, os.path.join(script_dir, "split_urdf.py"),
-        "-i", "robot_gazebo.urdf",
+        "-i", os.path.join("urdf", "robot_gazebo.urdf"),
         "-p", package_name,
+        "-o", "urdf/",
         "--damping", str(args.damping),
         "--friction", str(args.friction),
     ]
     if args.fixed_legs:
         split_cmd.append("--fixed-legs")
-    run(split_cmd, "Step 4/4: Split into joints/links xacro files")
+    run(split_cmd, "Step 4/4: Split into joints/links xacro files", cwd=repo_root)
 
     # Deploy to target package
     print(f"\n{'='*70}")
@@ -146,8 +159,8 @@ def main():
     xacro_name = package_name.replace("_description", "")
 
     # Copy xacro files
-    joints_src = os.path.join(script_dir, "urdf", "joints", "gazebo_joints.xacro")
-    links_src = os.path.join(script_dir, "urdf", "links", "gazebo_links.xacro")
+    joints_src = os.path.join(repo_root, "urdf", "joints", "gazebo_joints.xacro")
+    links_src = os.path.join(repo_root, "urdf", "links", "gazebo_links.xacro")
     joints_dst = os.path.join(target, "urdf", "joints", f"{xacro_name}_joints.xacro")
     links_dst = os.path.join(target, "urdf", "links", f"{xacro_name}_links.xacro")
 
@@ -161,7 +174,7 @@ def main():
 
     # Copy meshes
     for mesh_type in ["visual", "collision"]:
-        src_dir = os.path.join(script_dir, "meshes", mesh_type)
+        src_dir = os.path.join(repo_root, "urdf", "meshes", mesh_type)
         dst_dir = os.path.join(target, "meshes", mesh_type)
         os.makedirs(dst_dir, exist_ok=True)
 

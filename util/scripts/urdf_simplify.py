@@ -537,8 +537,8 @@ def main():
     parser = argparse.ArgumentParser(description='Simplify URDF: reorient frames, fix axes, merge links')
     parser.add_argument('input_urdf', help='Input URDF file path')
     parser.add_argument('--output', '-o', help='Output URDF file (default: <input>_simplified.urdf)')
-    parser.add_argument('--config', '-c', default='simplify_config.yaml',
-                        help='YAML config with strip_meshes list (default: simplify_config.yaml)')
+    parser.add_argument('--config', '-c', default='util/configs/simplify_config.yaml',
+                        help='YAML config with strip_meshes list (default: util/configs/simplify_config.yaml)')
     args = parser.parse_args()
 
     if not os.path.exists(args.input_urdf):

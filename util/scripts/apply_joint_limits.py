@@ -62,9 +62,9 @@ def apply_limits(input_urdf: str, config_path: str, output_urdf: str) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="Apply joint limits from YAML config to URDF")
-    parser.add_argument("-i", "--input", default="robot_simplified.urdf", help="Input URDF file")
-    parser.add_argument("-c", "--config", default="joint_limits.yaml", help="YAML config file")
-    parser.add_argument("-o", "--output", default="robot_with_limits.urdf", help="Output URDF file")
+    parser.add_argument("-i", "--input", default="urdf/robot_simplified.urdf", help="Input URDF file")
+    parser.add_argument("-c", "--config", default="util/configs/joint_limits.yaml", help="YAML config file")
+    parser.add_argument("-o", "--output", default="urdf/robot_with_limits.urdf", help="Output URDF file")
     args = parser.parse_args()
 
     apply_limits(args.input, args.config, args.output)

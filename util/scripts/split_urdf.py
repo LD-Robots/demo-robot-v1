@@ -181,8 +181,8 @@ def main():
     )
     parser.add_argument(
         "-i", "--input",
-        default="robot_gazebo.urdf",
-        help="Input URDF file (default: robot_gazebo.urdf)",
+        default="urdf/robot_gazebo.urdf",
+        help="Input URDF file (default: urdf/robot_gazebo.urdf)",
     )
     parser.add_argument(
         "-p", "--package",
@@ -227,10 +227,9 @@ def main():
     base_name = args.name or os.path.splitext(os.path.basename(args.input))[0]
     base_name = base_name.replace("robot_", "").replace("_urdf", "")
 
-    # Create output directories
-    base_dir = os.path.dirname(os.path.abspath(args.input))
-    joints_dir = os.path.join(base_dir, args.output_dir, "joints")
-    links_dir = os.path.join(base_dir, args.output_dir, "links")
+    # Create output directories (relative to CWD)
+    joints_dir = os.path.join(args.output_dir, "joints")
+    links_dir = os.path.join(args.output_dir, "links")
     os.makedirs(joints_dir, exist_ok=True)
     os.makedirs(links_dir, exist_ok=True)
 

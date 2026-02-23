@@ -105,6 +105,14 @@ def find_urdf_meshes(urdf_path: str) -> list[str]:
     return sorted(meshes)
 
 
+def _package_prefix(dir_path: str) -> str:
+    """Strip leading directories before 'meshes/' for package:// paths."""
+    idx = dir_path.find("meshes/")
+    if idx >= 0:
+        return dir_path[idx:]
+    return dir_path
+
+
 def create_output_urdf(
     input_urdf: str,
     output_urdf: str,
@@ -119,6 +127,9 @@ def create_output_urdf(
     tree = ET.parse(input_urdf)
     root = tree.getroot()
 
+    visual_prefix = _package_prefix(new_visual_dir)
+    col_prefix = _package_prefix(new_collision_dir or new_visual_dir)
+
     for link in root.iter("link"):
         # Visual meshes -> visual dir
         for visual in link.findall("visual"):
@@ -128,10 +139,9 @@ def create_output_urdf(
                     fn = fn[len("package://"):]
                 if fn.endswith(".stl"):
                     basename = os.path.basename(fn)
-                    mesh_el.set("filename", f"package://{new_visual_dir}{basename}")
+                    mesh_el.set("filename", f"package://{visual_prefix}{basename}")
 
         # Collision meshes -> collision dir (or visual dir)
-        col_dir = new_collision_dir or new_visual_dir
         for collision in link.findall("collision"):
             for mesh_el in collision.iter("mesh"):
                 fn = mesh_el.get("filename", "")
@@ -139,7 +149,7 @@ def create_output_urdf(
                     fn = fn[len("package://"):]
                 if fn.endswith(".stl"):
                     basename = os.path.basename(fn)
-                    mesh_el.set("filename", f"package://{col_dir}{basename}")
+                    mesh_el.set("filename", f"package://{col_prefix}{basename}")
 
     tree.write(output_urdf, xml_declaration=True, encoding="utf-8")
     print(f"\nURDF written: {output_urdf}")
@@ -151,13 +161,13 @@ def main():
     )
     parser.add_argument(
         "-i", "--input",
-        default="robot_simplified.urdf",
-        help="Input URDF file (default: robot_simplified.urdf)",
+        default="urdf/robot_with_limits.urdf",
+        help="Input URDF file (default: urdf/robot_with_limits.urdf)",
     )
     parser.add_argument(
         "-o", "--output",
-        default="robot_sim.urdf",
-        help="Output URDF file (default: robot_sim.urdf)",
+        default="urdf/robot_gazebo.urdf",
+        help="Output URDF file (default: urdf/robot_gazebo.urdf)",
     )
     parser.add_argument(
         "-r", "--ratio",
@@ -185,13 +195,13 @@ def main():
     )
     parser.add_argument(
         "--visual-dir",
-        default="meshes/visual/",
-        help="Output directory for visual meshes (default: meshes/visual/)",
+        default="urdf/meshes/visual/",
+        help="Output directory for visual meshes (default: urdf/meshes/visual/)",
     )
     parser.add_argument(
         "--collision-dir",
-        default="meshes/collision/",
-        help="Output directory for collision meshes (default: meshes/collision/)",
+        default="urdf/meshes/collision/",
+        help="Output directory for collision meshes (default: urdf/meshes/collision/)",
     )
     parser.add_argument(
         "--min-triangles",
@@ -202,17 +212,14 @@ def main():
     )
     args = parser.parse_args()
 
-    base_dir = os.path.dirname(os.path.abspath(args.input)) or "."
     urdf_path = args.input
 
-    # Always read originals from source-dir
-    source_dir = os.path.join(base_dir, args.source_dir)
-
-    # Resolve output directories
-    visual_out = os.path.join(base_dir, args.visual_dir)
+    # Resolve directories relative to CWD (not input file location)
+    source_dir = args.source_dir
+    visual_out = args.visual_dir
     separate_collision = args.convex_collision or args.collision_ratio is not None
     collision_ratio = args.collision_ratio or args.ratio
-    collision_out = os.path.join(base_dir, args.collision_dir) if separate_collision else None
+    collision_out = args.collision_dir if separate_collision else None
 
     os.makedirs(visual_out, exist_ok=True)
     if collision_out:
@@ -310,9 +317,10 @@ def main():
     print(f"Total visual triangles:     {total_visual:>12,}")
     if collision_out:
         print(f"Total collision triangles:  {total_collision:>12,}")
-    print(f"Overall visual reduction:   {(1 - total_visual / total_original) * 100:.1f}%")
-    if collision_out:
-        print(f"Overall collision reduction: {(1 - total_collision / total_original) * 100:.1f}%")
+    if total_original > 0:
+        print(f"Overall visual reduction:   {(1 - total_visual / total_original) * 100:.1f}%")
+        if collision_out:
+            print(f"Overall collision reduction: {(1 - total_collision / total_original) * 100:.1f}%")
     print(f"Total size:  {total_orig_size/1024/1024:.1f} MB -> {total_new_size/1024/1024:.1f} MB")
 
     # Create output URDF
