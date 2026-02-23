@@ -336,7 +336,11 @@ def simplify_urdf(root, links_info, sub_links):
     _junk = ('rotor', 'stator', 'bearing', 'rulment', 'nut', 'ball_with',
              'threaded_bar', 'threaded_eye', 'spacer', 'lever_ankle',
              'ankle_bearing', 'upper_ankle_shaft', 'ankle_shaft',
-             'fixation_leg')
+             'fixation_leg', 'ankle_ear', 'torso_pelvis_plate',
+             'urdf_bb_', 'urdf_bl_', 'urdf_bm_', 'urdf_br_', 'urdf_btl_', 'urdf_btu_',
+             'urdf_fb_', 'urdf_fl_', 'urdf_fm_', 'urdf_fr_', 'urdf_ftl_', 'urdf_ftu_',
+             'urdf_lb_', 'urdf_lbm_', 'urdf_lm_', 'urdf_ltl_', 'urdf_ltu_',
+             'urdf_rb_', 'urdf_rbm_', 'urdf_rm_', 'urdf_rtl_', 'urdf_rtu_')
     for link_el in root.findall('link'):
         for tag in ('visual', 'collision'):
             for elem in list(link_el.findall(tag)):
