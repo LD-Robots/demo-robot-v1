@@ -9,6 +9,7 @@ Python script for simplifying and reorienting URDF files exported from Onshape (
 3. **Simplifies the structure**:
    - Removes sub-links (duplicate joints, fixed joints)
    - Merges sub-link masses into their parent main links
+   - Strips motor hardware meshes (rotors, stators, bearings, nuts, spacers) from visual/collision, keeping only structural parts
 4. **Reorients all frames** to the standard convention:
    - **Z up, X forward, Y left**
    - Pitch / knee / elbow → `axis="0 1 0"` (Y)

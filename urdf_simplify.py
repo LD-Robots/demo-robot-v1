@@ -332,6 +332,20 @@ def simplify_urdf(root, links_info, sub_links):
                     old = float(m.get('value', '0'))
                     m.set('value', f'{old + mass_add[name]:.6f}')
 
+    # --- Remove motor-hardware visuals/collisions (rotors, stators, bearings, nuts, etc.) ---
+    _junk = ('rotor', 'stator', 'bearing', 'rulment', 'nut', 'ball_with',
+             'threaded_bar', 'threaded_eye', 'spacer', 'lever_ankle',
+             'ankle_bearing', 'upper_ankle_shaft', 'ankle_shaft',
+             'fixation_leg')
+    for link_el in root.findall('link'):
+        for tag in ('visual', 'collision'):
+            for elem in list(link_el.findall(tag)):
+                mesh = elem.find('.//mesh')
+                if mesh is not None:
+                    fn = mesh.get('filename', '').lower()
+                    if any(k in fn for k in _junk):
+                        link_el.remove(elem)
+
     # --- Remove sub-links and duplicate/fixed joints ---
     for link_el in list(root.findall('link')):
         if link_el.get('name') in sub_links:
