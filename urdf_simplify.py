@@ -16,6 +16,7 @@ import argparse
 import sys
 import os
 import math
+import yaml
 from collections import defaultdict, deque
 
 
@@ -302,7 +303,7 @@ def transform_link(link_el, R_transform):
 
 # ─── Main simplification ─────────────────────────────────────────────────────
 
-def simplify_urdf(root, links_info, sub_links):
+def simplify_urdf(root, links_info, sub_links, strip_meshes=()):
     """Full URDF simplification: merge, remove, reorient.
 
     Two-pass approach:
@@ -332,24 +333,16 @@ def simplify_urdf(root, links_info, sub_links):
                     old = float(m.get('value', '0'))
                     m.set('value', f'{old + mass_add[name]:.6f}')
 
-    # --- Remove motor-hardware visuals/collisions (rotors, stators, bearings, nuts, etc.) ---
-    _junk = ('rotor', 'stator', 'bearing', 'rulment', 'nut', 'ball_with',
-             'threaded_bar', 'threaded_eye', 'spacer', 'lever_ankle',
-             'ankle_bearing', 'upper_ankle_shaft', 'ankle_shaft',
-             'fixation_leg', 'ankle_ear', 'torso_pelvis_plate',
-             'l_hand', 'r_hand',
-             'urdf_bb_', 'urdf_bl_', 'urdf_bm_', 'urdf_br_', 'urdf_btl_', 'urdf_btu_',
-             'urdf_fb_', 'urdf_fl_', 'urdf_fm_', 'urdf_fr_', 'urdf_ftl_', 'urdf_ftu_',
-             'urdf_lb_', 'urdf_lbm_', 'urdf_lm_', 'urdf_ltl_', 'urdf_ltu_',
-             'urdf_rb_', 'urdf_rbm_', 'urdf_rm_', 'urdf_rtl_', 'urdf_rtu_')
-    for link_el in root.findall('link'):
-        for tag in ('visual', 'collision'):
-            for elem in list(link_el.findall(tag)):
-                mesh = elem.find('.//mesh')
-                if mesh is not None:
-                    fn = mesh.get('filename', '').lower()
-                    if any(k in fn for k in _junk):
-                        link_el.remove(elem)
+    # --- Remove unwanted visuals/collisions based on strip_meshes patterns ---
+    if strip_meshes:
+        for link_el in root.findall('link'):
+            for tag in ('visual', 'collision'):
+                for elem in list(link_el.findall(tag)):
+                    mesh = elem.find('.//mesh')
+                    if mesh is not None:
+                        fn = mesh.get('filename', '').lower()
+                        if any(k in fn for k in strip_meshes):
+                            link_el.remove(elem)
 
     # --- Remove sub-links and duplicate/fixed joints ---
     for link_el in list(root.findall('link')):
@@ -544,11 +537,23 @@ def main():
     parser = argparse.ArgumentParser(description='Simplify URDF: reorient frames, fix axes, merge links')
     parser.add_argument('input_urdf', help='Input URDF file path')
     parser.add_argument('--output', '-o', help='Output URDF file (default: <input>_simplified.urdf)')
+    parser.add_argument('--config', '-c', default='simplify_config.yaml',
+                        help='YAML config with strip_meshes list (default: simplify_config.yaml)')
     args = parser.parse_args()
 
     if not os.path.exists(args.input_urdf):
         print(f"Error: '{args.input_urdf}' not found.")
         sys.exit(1)
+
+    # Load strip_meshes from config
+    strip_meshes = ()
+    if os.path.exists(args.config):
+        with open(args.config) as f:
+            cfg = yaml.safe_load(f) or {}
+        strip_meshes = tuple(cfg.get('strip_meshes', []))
+        print(f"Config: {args.config} ({len(strip_meshes)} strip patterns)")
+    else:
+        print(f"Warning: config '{args.config}' not found, no meshes will be stripped")
 
     print(f"\n{'='*70}")
     print(f"  URDF Simplifier  (Z up, X forward, Y left)")
@@ -642,7 +647,7 @@ def main():
     tree2, root2 = parse_urdf(args.input_urdf)
 
     print(f"\nSimplifying...")
-    simplified = simplify_urdf(root2, links_info, sub_links)
+    simplified = simplify_urdf(root2, links_info, sub_links, strip_meshes)
 
     n_links = len(simplified.findall('link'))
     n_joints = len(simplified.findall('joint'))
